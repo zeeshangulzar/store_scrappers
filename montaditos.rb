@@ -2,14 +2,19 @@ class Montaditos
   require 'net/http'
   require 'json'
 
-  URL = "https://italy.100montaditos.com/dove-siamo/"
+  STORE_URL = 'https://italy.100montaditos.com/dove-siamo/'
+  LEAFLET_URL = 'https://italy.100montaditos.com/promozioni/'
 
-  def self.get_stores
-
-    uri = URI.parse(URL)
+  def self.send_request(url)
+    uri = URI.parse(url)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
-    response = http.get(uri.request_uri)
+    http.get(uri.request_uri)
+  end
+
+
+  def self.get_stores
+    response = send_request(STORE_URL)
     stores_data = JSON.parse(response.body.scan(/locals_list = (.*);/).flatten.first)
     allStores = []
     stores_data.each do |store_data|
@@ -26,10 +31,16 @@ class Montaditos
      allStores
   end
 
-  def self.run
-    stores = get_stores
+  def self.get_leaflet
+    response = send_request(LEAFLET_URL)
+    leaflet_images = response.body.scan(/\t<div class=\"bloque-imagen\">\n(.*)/).flatten
+    leaflet_images = leaflet_images.collect(&:strip).collect {|str|str.scan(/<img src=\"(.*)\" alt=/)}.flatten
   end
 
+  def self.run
+    stores = get_stores
+    leaflet =  get_leaflet
+  end
 end
 
 Montaditos.run
