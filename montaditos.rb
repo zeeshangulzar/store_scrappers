@@ -1,18 +1,20 @@
+require 'pqsdk'
+require 'net/http'
+require 'json'
+
 class Montaditos
-  require 'net/http'
-  require 'json'
 
   STORE_URL = 'https://italy.100montaditos.com/dove-siamo/'
   LEAFLET_URL = 'https://italy.100montaditos.com/promozioni/'
 
-  def self.send_request(url)
+  def send_request(url)
     uri = URI.parse(url)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
     http.get(uri.request_uri)
   end
 
-  def self.get_stores
+  def get_stores
     response = send_request(STORE_URL)
     stores_data = JSON.parse(response.body.scan(/locals_list = (.*);/).flatten.first)
     allStores = []
@@ -30,14 +32,18 @@ class Montaditos
      allStores
   end
 
-  def self.update_store(stores)
+  def update_store(stores)
     store_ids = []
     stores.each do |store|
       s = PQSDK::Store.find(store[:address], store[:zipcode])
-      if store.nil?
+      if s.nil?
         s = PQSDK::Store.new
         s.name = store[:name]
-        s.city = store[:city]
+        # if store[:city] == ""
+        #   s.city = "N/A"
+        # else
+          s.city = store[:city]
+        # end
         s.address = store[:address]
         s.origin = STORE_URL
         s.latitude = store[:latitude]
@@ -45,43 +51,47 @@ class Montaditos
         s.zipcode = store[:zipcode]
         s.phone = store[:phone_number]
       end
-      @report.info << "Store_infos: " + s.inspect
+      puts "Store_infos: " + s.inspect
       s.save
       store_ids << s.id
     end
+    store_ids
   end
 
-  def self.get_leaflet_images
+  def get_leaflet_images
     response = send_request(LEAFLET_URL)
     images = response.body.scan(/\t<div class=\"bloque-imagen\">\n(.*)/).flatten
     images.collect(&:strip).collect {|str|str.scan(/<img src=\"(.*)\" alt=/)}.flatten
   end
 
-  def self.get_leaflet(store_ids)
+  def get_leaflet(store_ids)
     leaflet_images = get_leaflet_images
 
-    # puts "Download from --> #{pdf_url}"
-    # leaflet = PQSDK::Leaflet.find LEAFLET_URL
-    # if leaflet.nil?
-    #   leaflet = PQSDK::Leaflet.new
-    #   leaflet.name = "Leaflet"
-    #   leaflet.start_date = leaflet.end_date = Time.now.to_s
-    #   leaflet.url = LEAFLET_URL
-    #   leaflet.store_ids = store_ids
-    #   leaflet.save
-    # end
+    leaflet = PQSDK::Leaflet.find LEAFLET_URL
+    if leaflet.nil?
+      leaflet = PQSDK::Leaflet.new
+      leaflet.name = "Leaflet"
+      leaflet.start_date = leaflet.end_date = Time.now.to_s
+      leaflet.image_urls = leaflet_images
+      leaflet.url = LEAFLET_URL
+      leaflet.store_ids = store_ids
+      leaflet.save
+    end
   end
 
-  def self.run
+  def run
+    PQSDK::Token.reset!
+
+    #Debug
+    PQSDK::Settings.host = 'api.promoqui.eu'
+    PQSDK::Settings.app_secret = 'f69e55ea82c336a14aa583dec84de050abca49455b177260052785f9d3abf461'
     stores = get_stores
+    # p "*"*100
+    # p stores
     store_ids = update_store(stores)
     leaflet =  get_leaflet store_ids
-    # p "========Stores====="
-    # p stores
-    # p "======Leaflet======="
-    # p leaflet
   end
 end
 
-Montaditos.run
-
+a = Montaditos.new
+a.run
