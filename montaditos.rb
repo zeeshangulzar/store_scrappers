@@ -12,7 +12,6 @@ class Montaditos
     http.get(uri.request_uri)
   end
 
-
   def self.get_stores
     response = send_request(STORE_URL)
     stores_data = JSON.parse(response.body.scan(/locals_list = (.*);/).flatten.first)
@@ -21,7 +20,7 @@ class Montaditos
       store = {}
       store[:name] = store_data["title"]
       store[:address] = store_data["address"]
-      store[:postal_code] = store_data["postal_code"]
+      store[:zipcode] = store_data["postal_code"]
       store[:phone_number] = store_data["phone_number"]
       store[:latitude] = store_data["latitude"]
       store[:longitude] = store_data["longitude"]
@@ -31,15 +30,56 @@ class Montaditos
      allStores
   end
 
-  def self.get_leaflet
+  def self.update_store(stores)
+    store_ids = []
+    stores.each do |store|
+      s = PQSDK::Store.find(store[:address], store[:zipcode])
+      if store.nil?
+        s = PQSDK::Store.new
+        s.name = store[:name]
+        s.city = store[:city]
+        s.address = store[:address]
+        s.origin = STORE_URL
+        s.latitude = store[:latitude]
+        s.longitude = store[:longitude]
+        s.zipcode = store[:zipcode]
+        s.phone = store[:phone_number]
+      end
+      @report.info << "Store_infos: " + s.inspect
+      s.save
+      store_ids << s.id
+    end
+  end
+
+  def self.get_leaflet_images
     response = send_request(LEAFLET_URL)
-    leaflet_images = response.body.scan(/\t<div class=\"bloque-imagen\">\n(.*)/).flatten
-    leaflet_images = leaflet_images.collect(&:strip).collect {|str|str.scan(/<img src=\"(.*)\" alt=/)}.flatten
+    images = response.body.scan(/\t<div class=\"bloque-imagen\">\n(.*)/).flatten
+    images.collect(&:strip).collect {|str|str.scan(/<img src=\"(.*)\" alt=/)}.flatten
+  end
+
+  def self.get_leaflet(store_ids)
+    leaflet_images = get_leaflet_images
+
+    # puts "Download from --> #{pdf_url}"
+    # leaflet = PQSDK::Leaflet.find LEAFLET_URL
+    # if leaflet.nil?
+    #   leaflet = PQSDK::Leaflet.new
+    #   leaflet.name = "Leaflet"
+    #   leaflet.start_date = leaflet.end_date = Time.now.to_s
+    #   leaflet.url = LEAFLET_URL
+    #   leaflet.store_ids = store_ids
+    #   leaflet.save
+    # end
   end
 
   def self.run
     stores = get_stores
-    leaflet =  get_leaflet
+    store_ids = update_store(stores)
+    leaflet =  get_leaflet store_ids
+    # p "========Stores====="
+    # p stores
+    # p "======Leaflet======="
+    # p leaflet
   end
 end
 
