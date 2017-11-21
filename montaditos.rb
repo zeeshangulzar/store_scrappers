@@ -1,22 +1,17 @@
 require 'pqsdk'
-require 'net/http'
 require 'json'
+require 'nokogiri'
+require 'open-uri'
 
 class Montaditos
 
   STORE_URL = 'https://italy.100montaditos.com/dove-siamo/'
   LEAFLET_URL = 'https://italy.100montaditos.com/promozioni/'
 
-  def send_request(url)
-    uri = URI.parse(url)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    http.get(uri.request_uri)
-  end
-
   def get_stores
-    response = send_request(STORE_URL)
-    stores_data = JSON.parse(response.body.scan(/locals_list = (.*);/).flatten.first)
+    doc = Nokogiri::HTML(open(STORE_URL))
+    stores = doc.css('script').map {|s| s.content.scan(/locals_list = (.*);/)}
+    stores_data = JSON.parse(stores.flatten.first)
     allStores = []
     stores_data.each do |store_data|
       store = {}
@@ -39,11 +34,7 @@ class Montaditos
       if s.nil?
         s = PQSDK::Store.new
         s.name = store[:name]
-        # if store[:city] == ""
-        #   s.city = "N/A"
-        # else
-          s.city = store[:city]
-        # end
+        s.city = store[:city] == '' ? 'DEFAULT' : store[:city]
         s.address = store[:address]
         s.origin = STORE_URL
         s.latitude = store[:latitude]
@@ -58,14 +49,9 @@ class Montaditos
     store_ids
   end
 
-  def get_leaflet_images
-    response = send_request(LEAFLET_URL)
-    images = response.body.scan(/\t<div class=\"bloque-imagen\">\n(.*)/).flatten
-    images.collect(&:strip).collect {|str|str.scan(/<img src=\"(.*)\" alt=/)}.flatten
-  end
-
   def get_leaflet(store_ids)
-    leaflet_images = get_leaflet_images
+    doc = Nokogiri::HTML(open(LEAFLET_URL))
+    leaflet_images = doc.css('.bloque-imagen img').map { |l| l.attr('src') }
 
     leaflet = PQSDK::Leaflet.find LEAFLET_URL
     if leaflet.nil?
@@ -86,8 +72,6 @@ class Montaditos
     PQSDK::Settings.host = 'api.promoqui.eu'
     PQSDK::Settings.app_secret = 'f69e55ea82c336a14aa583dec84de050abca49455b177260052785f9d3abf461'
     stores = get_stores
-    # p "*"*100
-    # p stores
     store_ids = update_store(stores)
     leaflet =  get_leaflet store_ids
   end
