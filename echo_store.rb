@@ -27,15 +27,27 @@ class EchoStore
 
   def parse_hours(day, daily_hours)
     morning_hours = day.children[3].text.split(" ")
-    return daily_hours if morning_hours.size == 1 && morning_hours[0] == 'closed'
-    daily_hours[:open_morning] = morning_hours[0]
-    daily_hours[:close_morning] = morning_hours[1]
+    if morning_hours.size == 1 && morning_hours[0] == 'closed'
+      daily_hours[:closed] = true
+      return daily_hours
+    end
+    daily_hours[:open_am] = morning_hours[0]
+    daily_hours[:close_am] = morning_hours[1]
     if day.children[6]
       evening_hours = day.children[6].text.split(" ")
-      daily_hours[:open_evening] = evening_hours[0]
-      daily_hours[:close_evening] = evening_hours[1]
+      daily_hours[:open_pm] = evening_hours[0]
+      daily_hours[:close_pm] = evening_hours[1]
     end
     daily_hours
+  end
+
+  def parse_city(address)
+    city = address.split(',')[-2].tr("0-9", "").strip
+    city_array = city.split(" ")
+    if city_array.last.size == 2
+      city_array.pop
+    end
+    city_array.join(' ')
   end
 
   def get_stores
@@ -45,11 +57,11 @@ class EchoStore
     stores_data.each do |store_data|
       store = {}
       store[:name] = store_data["store_name"]
-      store[:address] = store_data["formatted_address_loc"]
+      store[:address] = store_data["formatted_address_loc"].split(",").first
       store[:zipcode] = store_data["formatted_address_loc"].split(',')[-2].gsub(/[^\d]/, '')
       store[:latitude] = store_data["lat"]
       store[:longitude] = store_data["lng"]
-      store[:city] = store_data["formatted_address_loc"].split(',')[-2].tr("0-9", "").strip
+      store[:city] = parse_city(store_data["formatted_address_loc"])
       if store_data["status"] == "1"
         detail_url = STORE_DETAIL + store_data["store_code"].to_s
         store_detail = Nokogiri::HTML(open(detail_url))
