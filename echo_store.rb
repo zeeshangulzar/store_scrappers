@@ -1,3 +1,4 @@
+require 'pqsdk'
 require 'json'
 require 'nokogiri'
 require 'open-uri'
@@ -7,29 +8,9 @@ class EchoStore
 
   STORE_URL = 'https://www.ecostore.it/app/themes/pn-theme/models/services/get-all-locations.php'
   STORE_DETAIL = 'https://www.ecostore.it/store?id='
+  ORIGIN = 'https://www.ecostore.it/store-locator/'
+
   WEEKDAYS = { "LUN" => 0, "MAR" => 1, "MER" => 2, "GIO" => 3, "VEN" => 4, "SAB" => 5, "DOM" => 6 }
-
-  def get_stores
-    all_stores = []
-    doc = Nokogiri::HTML(open(STORE_URL))
-    stores_data = JSON.parse(doc)
-    stores_data.each do |store_data|
-      store = {}
-      store[:name] = store_data["store_name"]
-      store[:address] = store_data["formatted_address_loc"]
-      store[:zipcode] = store_data["formatted_address_loc"].split(',')[-2].gsub(/[^\d]/, '')
-      store[:latitude] = store_data["lat"]
-      store[:longitude] = store_data["lng"]
-      store[:city] = store_data["formatted_address_loc"].split(',')[-2].tr("0-9", "").strip
-
-      detail_url = STORE_DETAIL + store_data["store_code"].to_s
-      store_detail = Nokogiri::HTML(open(detail_url))
-      store[:phone_number] = store_detail.css('.single-store__rec a').text
-      store[:hours] = get_hours store_detail
-      all_stores << store
-    end
-     all_stores
-  end
 
   def get_hours(store)
     hours_data = []
@@ -57,13 +38,56 @@ class EchoStore
     daily_hours
   end
 
+  def get_stores
+    all_stores = []
+    doc = Nokogiri::HTML(open(STORE_URL))
+    stores_data = JSON.parse(doc)
+    stores_data.each do |store_data|
+      store = {}
+      store[:name] = store_data["store_name"]
+      store[:address] = store_data["formatted_address_loc"]
+      store[:zipcode] = store_data["formatted_address_loc"].split(',')[-2].gsub(/[^\d]/, '')
+      store[:latitude] = store_data["lat"]
+      store[:longitude] = store_data["lng"]
+      store[:city] = store_data["formatted_address_loc"].split(',')[-2].tr("0-9", "").strip
+      if store_data["status"] == "1"
+        detail_url = STORE_DETAIL + store_data["store_code"].to_s
+        store_detail = Nokogiri::HTML(open(detail_url))
+        store[:phone_number] = store_detail.css('.single-store__rec a').text
+        store[:hours] = get_hours store_detail
+      end
+      puts "Store_infos: " + store.inspect
+      all_stores << store
+    end
+     all_stores
+  end
 
+  def update_stores(stores)
+    stores.each do |store|
+      s = PQSDK::Store.find(store[:address], store[:zipcode])
+      if s.nil?
+        s = PQSDK::Store.new
+        s.name = store[:name]
+        s.city = store[:city]
+        s.address = store[:address]
+        s.origin = ORIGIN
+        s.latitude = store[:latitude]
+        s.longitude = store[:longitude]
+        s.zipcode = store[:zipcode]
+        s.phone = store[:phone_number]
+      end
+      s.opening_hours = store[:hours]
+      puts "Store_infos: " + s.inspect
+      s.save
+    end
+  end
 
   def run
-    # PQSDK::Token.reset!
-    # PQSDK::Settings.host = 'api.promoqui.eu'
-    # PQSDK::Settings.app_secret = '1904fbed9987ee6cd5653d558f8ad9e8ce281f94bc01a44b50adc64fbc95d612'
+    PQSDK::Token.reset!
+    PQSDK::Settings.host = 'api.promoqui.eu'
+    PQSDK::Settings.app_secret = '6ff7d0a40b3f0021504e5aea15bbed51a13f484979d7fd2a27d0167545b877ca'
     stores = get_stores
+    update_stores(stores)
   end
 end
 
