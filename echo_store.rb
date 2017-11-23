@@ -8,7 +8,6 @@ class EchoStore
 
   STORE_URL = 'https://www.ecostore.it/app/themes/pn-theme/models/services/get-all-locations.php'
   STORE_DETAIL = 'https://www.ecostore.it/store?id='
-  ORIGIN = 'https://www.ecostore.it/store-locator/'
 
   WEEKDAYS = { "LUN" => 0, "MAR" => 1, "MER" => 2, "GIO" => 3, "VEN" => 4, "SAB" => 5, "DOM" => 6 }
 
@@ -57,7 +56,7 @@ class EchoStore
     stores_data.each do |store_data|
       store = {}
       store[:name] = store_data["store_name"]
-      store[:address] = store_data["formatted_address_loc"].split(",").first
+      store[:address] = store_data["formatted_address_loc"].split(",").first(2).join('')
       store[:zipcode] = store_data["formatted_address_loc"].split(',')[-2].gsub(/[^\d]/, '')
       store[:latitude] = store_data["lat"]
       store[:longitude] = store_data["lng"]
@@ -67,6 +66,7 @@ class EchoStore
         store_detail = Nokogiri::HTML(open(detail_url))
         store[:phone_number] = store_detail.css('.single-store__rec a').text
         store[:hours] = get_hours store_detail
+        store[:origin] = STORE_DETAIL + store_data["store_code"].to_s
       end
       puts "Store_infos: " + store.inspect
       all_stores << store
@@ -82,7 +82,7 @@ class EchoStore
         s.name = store[:name]
         s.city = store[:city]
         s.address = store[:address]
-        s.origin = ORIGIN
+        s.origin = store[:origin]
         s.latitude = store[:latitude]
         s.longitude = store[:longitude]
         s.zipcode = store[:zipcode]
