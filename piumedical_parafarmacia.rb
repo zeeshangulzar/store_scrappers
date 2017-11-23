@@ -5,6 +5,14 @@ require 'open-uri'
 require 'byebug'
 require 'geocoder'
 
+Geocoder.configure(
+  timeout: 5,
+  lookup:  :google,
+  api_key: "AIzaSyBRXZRZ2D2sB0lqQhBDsm619tV471Y5zFw",
+  # api_key: 'AIzaSyCYkLXVWq41-1RYrWxBvnUCm-qXcE4FJYo',
+  units:   :mi
+  )
+
 class PiuMedicalParafarmacia
 
   STORE_URL = 'http://www.piumedical.it/punti_vendita.asp'
@@ -74,6 +82,7 @@ class PiuMedicalParafarmacia
         s.longitude = store[:longitude]
         s.zipcode = store[:zipcode]
         s.phone = store[:phone]
+        s.email = store[:email]
       end
       puts "Store_infos: " + s.inspect
       s.save
