@@ -136,7 +136,7 @@ class RitmoShoes
         s.latitude = store[:latitude]
         s.longitude = store[:longitude]
         s.zipcode = store[:zipcode]
-        s.phone = store[:phone_number]
+        s.phone = store[:phone]
       end
       s.opening_hours = store[:hours]
       puts "Store_infos: " + s.inspect
