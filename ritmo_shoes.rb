@@ -10,35 +10,37 @@ class RitmoShoes
   LEAFLET_URL = 'http://www.ritmoshoes.it/collezioni'
   URL = 'http://www.ritmoshoes.it/'
 
+  WEEKDAYS = { "Lunedì" => 0, "Martedì" => 1, "Mercoledì" => 2, "Giovedì" => 3, "Venerdì" => 4, "Sabato" => 5, "Domenica" => 6 }
 
-  # def get_hours(store)
-  #   hours_data = []
-  #   hours_table = store.css('.single-store__table-list li')
-  #   hours_table.each do |day|
-  #     day_name = day.children[0].text
-  #     p "hour_data: "+ day.text
-  #     daily_hours = {}
-  #     daily_hours[:weekday] = WEEKDAYS[day_name]
-  #     hours_data << parse_hours(day, daily_hours)
-  #   end
-  #   hours_data
-  # end
 
-  # def parse_hours(day, daily_hours)
-  #   morning_hours = day.children[3].text.split(" ")
-  #   if morning_hours.size == 1 && morning_hours[0] == 'closed'
-  #     daily_hours[:closed] = true
-  #     return daily_hours
-  #   end
-  #   daily_hours[:open_am] = morning_hours[0]
-  #   daily_hours[:close_am] = morning_hours[1]
-  #   if day.children[6]
-  #     evening_hours = day.children[6].text.split(" ")
-  #     daily_hours[:open_pm] = evening_hours[0]
-  #     daily_hours[:close_pm] = evening_hours[1]
-  #   end
-  #   daily_hours
-  # end
+
+  def get_hours(store_data, store)
+    hours = store_data.text.scan(/orari:\r\n(.*)mappa/m).flatten.first
+    if hours.nil?
+      hours = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first
+    end
+    store[:hours] = hours.try(:strip)
+    store
+  end
+
+  def format_hours
+  end
+
+  def parse_hours(day, daily_hours)
+    morning_hours = day.children[3].text.split(" ")
+    if morning_hours.size == 1 && morning_hours[0] == 'closed'
+      daily_hours[:closed] = true
+      return daily_hours
+    end
+    daily_hours[:open_am] = morning_hours[0]
+    daily_hours[:close_am] = morning_hours[1]
+    if day.children[6]
+      evening_hours = day.children[6].text.split(" ")
+      daily_hours[:open_pm] = evening_hours[0]
+      daily_hours[:close_pm] = evening_hours[1]
+    end
+    daily_hours
+  end
 
   def get_leaflet(store_ids)
     doc = Nokogiri::HTML(open(LEAFLET_URL))
@@ -68,8 +70,12 @@ class RitmoShoes
     all_stores = []
     doc = Nokogiri::HTML(open(STORE_URL))
     stores_data = doc.css('.pdv')
+    count = 1
     stores_data.each do |store_data|
+      p count
+      count = count + 1;
       store = {}
+      store = get_hours(store_data, store)
       store[:origin] = URL + store_data.css('a').attr('href').text
       store = get_lat_lon(store)
       store[:name] = store_data.css('.title').text
@@ -118,6 +124,7 @@ class RitmoShoes
         store[:phone] = store_data.children[6].text.split('tel.').last.strip
       end
       puts "Store_infos: " + store.inspect
+      puts store[:hours]
       all_stores << store
     end
      all_stores
@@ -147,14 +154,12 @@ class RitmoShoes
   end
 
   def run
-    PQSDK::Token.reset!
-    PQSDK::Settings.host = 'api.promoqui.eu'
-    PQSDK::Settings.app_secret = '7879f182452d03c4e198a807817c531fb38287f85fa5ff7e36223f375fe20f44'
+    # PQSDK::Token.reset!
+    # PQSDK::Settings.host = 'api.promoqui.eu'
+    # PQSDK::Settings.app_secret = '7879f182452d03c4e198a807817c531fb38287f85fa5ff7e36223f375fe20f44'
     stores = get_stores
-    store_ids = update_stores(stores)
-    p "*"*100
-    p store_ids
-    get_leaflet store_ids
+    # store_ids = update_stores(stores)
+    # get_leaflet store_ids
   end
 end
 
