@@ -8,8 +8,7 @@ require 'geocoder'
 Geocoder.configure(
   timeout: 5,
   lookup:  :google,
-  api_key: "AIzaSyBRXZRZ2D2sB0lqQhBDsm619tV471Y5zFw",
-  # api_key: 'AIzaSyCYkLXVWq41-1RYrWxBvnUCm-qXcE4FJYo',
+  api_key: 'AIzaSyCYkLXVWq41-1RYrWxBvnUCm-qXcE4FJYo',
   units:   :mi
   )
 
@@ -17,15 +16,20 @@ class PiuMedicalParafarmacia
 
   STORE_URL = 'http://www.piumedical.it/punti_vendita.asp'
   LEAFLET_URL = 'http://www.piumedical.it/offerte_volantino.asp'
-  LEAFLET_IMAGE_URL = 'https://image.isu.pub/171106093109-d3055575fcfc345fbb9d768207eaf063/jpg/'
+  ISSU_URL = 'https://e.issuu.com/config/'
+  LEAFLET_IMAGE_URL = 'https://reader3.isu.pub'
 
   def get_leaflet store_ids
     leaflet_images = []
-    (1..8).each do |page|
-      page_number = ['page_', page, '.jpg'].join
-      leaflet_images << LEAFLET_IMAGE_URL + page_number
-    end
 
+    page = Nokogiri::HTML(open(LEAFLET_URL))
+    page_id = page.css('.issuuembed').attr('data-configid').text.split("/").last
+    issu_url = [ISSU_URL, page_id, '.json'].join
+    issu_page = Nokogiri::HTML(open(issu_url))
+    issu_data = JSON.parse(issu_page)
+    leaflet_images_url = [LEAFLET_IMAGE_URL, issu_data["ownerUsername"], issu_data["documentURI"], 'reader3_4.json'].join('/')
+    doc = Nokogiri::HTML(open(leaflet_images_url))
+    leaflet_images = JSON.parse(doc.css('body').text)["document"]["pages"].map {|a| a["imageUri"]}
     leaflet = PQSDK::Leaflet.find LEAFLET_URL
     if leaflet.nil?
       leaflet = PQSDK::Leaflet.new
@@ -49,9 +53,10 @@ class PiuMedicalParafarmacia
 
       store[:name] = page.css('.parafarmacia h3').text
       store[:phone] = page.css('.fa-phone').last.next.text
-      store[:email] = page.css('.fa-at').last.next.text
+      # store[:email] = page.css('.fa-at').last.next.text
 
       location = page.css('.fa-map-marker').last.next.text
+      location = location.gsub("&nbsp", ' ').strip
 
       coordinates = Geocoder.search(location)
       store[:latitude] = coordinates[0].try(:latitude)
@@ -59,7 +64,7 @@ class PiuMedicalParafarmacia
 
       location = location.split(",")
       store[:zipcode] = location.last.gsub(/[^\d]/, '')
-      store[:city] = location.last.scan(/\((.*)\)/).flatten.first
+      store[:city] = location.last.strip.split(" (").first.gsub(/[^a-zA-Z]/, " ").strip
       location.pop
       store[:address] = location.join.strip
       all_stores << store
@@ -82,7 +87,7 @@ class PiuMedicalParafarmacia
         s.longitude = store[:longitude]
         s.zipcode = store[:zipcode]
         s.phone = store[:phone]
-        s.email = store[:email]
+        # s.email = store[:email]
       end
       puts "Store_infos: " + s.inspect
       s.save
