@@ -35,8 +35,10 @@ class GameAthletics
         store[:city] = address[9]
         store[:zipcode] = address[6]
       end
+      store[:address] = store[:address].gsub('u0027', '')
+      store[:city] = store[:city].gsub('u0027', '').gsub('Citta', '').strip
       all_stores << store
-      puts "Store_infos: " + store[:address].inspect
+      puts "Store_infos: " + store.inspect
     end
      all_stores
   end
