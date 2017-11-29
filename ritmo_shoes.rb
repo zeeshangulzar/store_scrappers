@@ -17,10 +17,8 @@ class RitmoShoes
 
   def get_hours(store_data)
     weekdays = store_data.text.scan(/orari:\r\n(.*)mappa/m).flatten.first.try(:strip)
-    weekdays = "" if weekdays.nil?
-    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.strip == ""
-    weekdays = "" if weekdays.nil?
-    if weekdays.strip == ""
+    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.nil? || weekdays.strip == ""
+    if weekdays.nil? || weekdays.strip == ""
       child = 9
       last_child = store_data.children.index(store_data.css('a').first)
       while child<last_child && !weekdays.include?("da")
