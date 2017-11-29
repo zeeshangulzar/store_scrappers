@@ -4,6 +4,7 @@ require 'nokogiri'
 require 'open-uri'
 require 'byebug'
 
+
 class RitmoShoes
 
   STORE_URL = 'http://www.ritmoshoes.it/punti-vendita'
@@ -11,35 +12,91 @@ class RitmoShoes
   URL = 'http://www.ritmoshoes.it/'
 
   WEEKDAYS = { "Lunedì" => 0, "Martedì" => 1, "Mercoledì" => 2, "Giovedì" => 3, "Venerdì" => 4, "Sabato" => 5, "Domenica" => 6 }
+  NBSP = Nokogiri::HTML("&nbsp;").text
 
 
-
-  def get_hours(store_data, store)
-    hours = store_data.text.scan(/orari:\r\n(.*)mappa/m).flatten.first
-    if hours.nil?
-      hours = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first
+  def get_hours(store_data)
+    weekdays = store_data.text.scan(/orari:\r\n(.*)mappa/m).flatten.first.try(:strip)
+    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.blank?
+    if weekdays.blank?
+      weekdays = ""
+      child = 9
+      last_child = store_data.children.index(store_data.css('a').first)
+      while child<last_child && !weekdays.include?("da")
+        weekdays = store_data.children[child].text if weekdays.blank?
+        child += 1
+      end
     end
-    store[:hours] = hours.try(:strip)
-    store
+    weekdays = weekdays.gsub!("\r", ' ') if weekdays.include?("\r")
+    weekdays = weekdays.gsub!("*", ' ') if weekdays.include?("*")
+    weekdays = weekdays.gsub!("dalle", ' ') if weekdays.include?("dalle")
+    weekdays = weekdays.gsub!("alle", '-') if weekdays.include?("alle")
+    weekdays = weekdays.gsub!(": ", ' ') if weekdays.include?(": ")
+    weekdays = weekdays.split("\n")
+    weekdays
   end
 
-  def format_hours
+  def add_slot(week_count, start_day, end_day, week)
+    if week_count == 2
+      return {
+        weekday: week,
+        open_am: start_day[4],
+        close_am: start_day[6],
+        open_pm: end_day[0],
+        close_pm: end_day[2]
+      }
+    else
+      return {
+        weekday: week,
+        open_am: start_day[4],
+        close_pm: start_day[6]
+      }
+    end
   end
 
-  def parse_hours(day, daily_hours)
-    morning_hours = day.children[3].text.split(" ")
-    if morning_hours.size == 1 && morning_hours[0] == 'closed'
-      daily_hours[:closed] = true
-      return daily_hours
+  def split_day_time(weekday)
+    byebug
+    day_time = weekday.gsub(NBSP,' ').split(" ")
+    if day_time.last.include?("-")
+     time = day_time.last.split("-")
+     day_time[day_time.size-1] = time.first
+     day_time += ["-", time.last]
     end
-    daily_hours[:open_am] = morning_hours[0]
-    daily_hours[:close_am] = morning_hours[1]
-    if day.children[6]
-      evening_hours = day.children[6].text.split(" ")
-      daily_hours[:open_pm] = evening_hours[0]
-      daily_hours[:close_pm] = evening_hours[1]
+    day_time
+  end
+
+  def format_hours(store_data)
+    byebug
+    weekdays = get_hours(store_data)
+    return if weekdays.blank?
+    hours = []
+    weekdays.each do |weekday|
+      unless weekday.blank?
+        if weekday.include?("/")
+          weekday = weekday.split("/")
+          start_day = split_day_time(weekday[0])
+          end_day = split_day_time(weekday[1])
+          week_count = weekday.count
+        else
+          start_day = weekday.gsub(NBSP,' ').split(" ")
+          week_count = 1
+        end
+
+        if start_day.count == 7
+          WEEKDAYS[start_day[1]]..(WEEKDAYS[start_day[3]]+1).times do |week|
+            hours.push(add_slot(week_count, start_day, end_day, week))
+          end
+        else
+          start_day[0] = "Domenica" if start_day[0] == "Dom"
+          hours.push({
+            weekday: WEEKDAYS[start_day[0]],
+            open_am: start_day[1],
+            close_pm: start_day[3]
+          })
+        end
+      end
     end
-    daily_hours
+    hours
   end
 
   def get_leaflet(store_ids)
@@ -72,10 +129,7 @@ class RitmoShoes
     stores_data = doc.css('.pdv')
     count = 1
     stores_data.each do |store_data|
-      p count
-      count = count + 1;
       store = {}
-      store = get_hours(store_data, store)
       store[:origin] = URL + store_data.css('a').attr('href').text
       store = get_lat_lon(store)
       store[:name] = store_data.css('.title').text
@@ -123,6 +177,8 @@ class RitmoShoes
         store[:city] = location.join(' ')
         store[:phone] = store_data.children[6].text.split('tel.').last.strip
       end
+      store[:hours] = format_hours(store_data)
+      byebug
       puts "Store_infos: " + store.inspect
       puts store[:hours]
       all_stores << store
@@ -154,12 +210,12 @@ class RitmoShoes
   end
 
   def run
-    # PQSDK::Token.reset!
-    # PQSDK::Settings.host = 'api.promoqui.eu'
-    # PQSDK::Settings.app_secret = '7879f182452d03c4e198a807817c531fb38287f85fa5ff7e36223f375fe20f44'
+    PQSDK::Token.reset!
+    PQSDK::Settings.host = 'api.promoqui.eu'
+    PQSDK::Settings.app_secret = '7879f182452d03c4e198a807817c531fb38287f85fa5ff7e36223f375fe20f44'
     stores = get_stores
-    # store_ids = update_stores(stores)
-    # get_leaflet store_ids
+    store_ids = update_stores(stores)
+    get_leaflet store_ids
   end
 end
 
