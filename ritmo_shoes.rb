@@ -17,13 +17,14 @@ class RitmoShoes
 
   def get_hours(store_data)
     weekdays = store_data.text.scan(/orari:\r\n(.*)mappa/m).flatten.first.try(:strip)
-    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.blank?
-    if weekdays.blank?
-      weekdays = ""
+    weekdays = "" if weekdays.nil?
+    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.strip == ""
+    weekdays = "" if weekdays.nil?
+    if weekdays.strip == ""
       child = 9
       last_child = store_data.children.index(store_data.css('a').first)
       while child<last_child && !weekdays.include?("da")
-        weekdays = store_data.children[child].text if weekdays.blank?
+        weekdays = store_data.children[child].text if weekdays.strip == ""
         child += 1
       end
     end
@@ -37,7 +38,11 @@ class RitmoShoes
   end
 
   def add_slot(week_count, start_day, end_day, week)
+    start_day[4] = start_day[4].gsub!(".", ':') if start_day[4].include?(".")
+    start_day[6] = start_day[6].gsub!(".", ':') if start_day[6].include?(".")
     if week_count == 2
+      end_day[0] = end_day[0].gsub!(".", ':') if end_day[0].include?(".")
+      end_day[2] = end_day[2].gsub!(".", ':') if end_day[2].include?(".")
       return {
         weekday: week,
         open_am: start_day[4],
@@ -55,7 +60,6 @@ class RitmoShoes
   end
 
   def split_day_time(weekday)
-    byebug
     day_time = weekday.gsub(NBSP,' ').split(" ")
     if day_time.last.include?("-")
      time = day_time.last.split("-")
@@ -66,12 +70,10 @@ class RitmoShoes
   end
 
   def format_hours(store_data)
-    byebug
     weekdays = get_hours(store_data)
-    return if weekdays.blank?
     hours = []
     weekdays.each do |weekday|
-      unless weekday.blank?
+      unless weekday.strip.gsub(NBSP,'') == ""
         if weekday.include?("/")
           weekday = weekday.split("/")
           start_day = split_day_time(weekday[0])
@@ -88,6 +90,8 @@ class RitmoShoes
           end
         else
           start_day[0] = "Domenica" if start_day[0] == "Dom"
+          start_day[1] = start_day[1].gsub!(".", ':') if start_day[1].include?(".")
+          start_day[3] = start_day[3].gsub!(".", ':') if start_day[3].include?(".")
           hours.push({
             weekday: WEEKDAYS[start_day[0]],
             open_am: start_day[1],
@@ -178,7 +182,6 @@ class RitmoShoes
         store[:phone] = store_data.children[6].text.split('tel.').last.strip
       end
       store[:hours] = format_hours(store_data)
-      byebug
       puts "Store_infos: " + store.inspect
       puts store[:hours]
       all_stores << store
