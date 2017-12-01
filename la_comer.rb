@@ -10,6 +10,23 @@ class Lacomer
   STATE_URL = 'https://vasalsuperoalacomer.com/comer/scripts/estados.php'
   BRANCH_URL = 'https://vasalsuperoalacomer.com/comer/scripts/sucursales.php?id='
   ENITITY_URL = 'https://vasalsuperoalacomer.com/comer/scripts/sucursal.php?id='
+  LEAFLET_URL = 'https://vasalsuperoalacomer.com/comer/folleto'
+  ROOT_URL = 'https://vasalsuperoalacomer.com/comer/'
+
+  def get_leaflet(store_ids)
+    doc = Nokogiri::HTML(open(LEAFLET_URL))
+    leaflet_images = doc.css('.bb-item img').map {|image| [ROOT_URL, image.attr('src')].join }
+    leaflet = PQSDK::Leaflet.find LEAFLET_URL
+    if leaflet.nil?
+      leaflet = PQSDK::Leaflet.new
+      leaflet.name = "Leaflet"
+      leaflet.start_date = leaflet.end_date = Time.now.to_s
+      leaflet.image_urls = leaflet_images
+      leaflet.url = LEAFLET_URL
+      leaflet.store_ids = store_ids
+      leaflet.save
+    end
+  end
 
   def get_stores
     all_stores = []
@@ -52,12 +69,13 @@ class Lacomer
   end
 
   def update_store(stores)
+    store_ids = []
     stores.each do |store|
       s = PQSDK::Store.find(store[:address], store[:zipcode])
       if s.nil?
         s = PQSDK::Store.new
         s.name = store[:name]
-        s.city = store[:city]
+        s.city =  'Test' ||store[:city]
         s.address = store[:address]
         s.origin = STORE_URL
         s.latitude = store[:latitude]
@@ -67,16 +85,18 @@ class Lacomer
       end
       puts "Promoqui_infos: " + s.inspect
       s.save
+      store_ids << s.id
     end
+    store_ids
   end
-
 
   def run
     PQSDK::Token.reset!
     PQSDK::Settings.host = 'api.promoqui.eu'
     PQSDK::Settings.app_secret = 'c055acc7635b13f68782141db920a996ecac3e78ef4545df60b2ed5febf6a2d7'
     stores = get_stores
-    update_store(stores)
+    store_ids = update_store(stores)
+    get_leaflet(store_ids)
   end
 end
 
