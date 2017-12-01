@@ -93,6 +93,8 @@ class RitmoShoes
           start_day[1] = start_day[1].gsub!(".", ':') if start_day[1].include?(".")
           start_day[3] = start_day[3].gsub!(".", ':') if start_day[3].include?(".")
           if end_day.present?
+            end_day[0] = end_day[0].gsub!(".", ':') if end_day[0].include?(".")
+            end_day[2] = end_day[2].gsub!(".", ':') if end_day[2].include?(".")
             hours.push({
               weekday: WEEKDAYS[start_day[0]],
               open_am: start_day[1],
