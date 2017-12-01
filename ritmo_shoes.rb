@@ -17,8 +17,10 @@ class RitmoShoes
 
   def get_hours(store_data)
     weekdays = store_data.text.scan(/orari:\r\n(.*)mappa/m).flatten.first.try(:strip)
-    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.nil? || weekdays.strip == ""
-    if weekdays.nil? || weekdays.strip == ""
+    weekdays = "" if weekdays.nil?
+    weekdays = store_data.text.scan(/Orari:\r\n(.*)mappa/m).flatten.first.try(:strip) if weekdays.strip == ""
+    weekdays = "" if weekdays.nil?
+    if weekdays.strip == ""
       child = 9
       last_child = store_data.children.index(store_data.css('a').first)
       while child<last_child && !weekdays.include?("da")
@@ -90,11 +92,21 @@ class RitmoShoes
           start_day[0] = "Domenica" if start_day[0] == "Dom"
           start_day[1] = start_day[1].gsub!(".", ':') if start_day[1].include?(".")
           start_day[3] = start_day[3].gsub!(".", ':') if start_day[3].include?(".")
-          hours.push({
-            weekday: WEEKDAYS[start_day[0]],
-            open_am: start_day[1],
-            close_pm: start_day[3]
-          })
+          if end_day.present?
+            hours.push({
+              weekday: WEEKDAYS[start_day[0]],
+              open_am: start_day[1],
+              close_am: start_day[3],
+              open_pm: end_day[0],
+              close_pm: end_day[2]
+            })
+          else
+            hours.push({
+              weekday: WEEKDAYS[start_day[0]],
+              open_am: start_day[1],
+              close_pm: start_day[3]
+            })
+          end
         end
       end
     end
