@@ -47,13 +47,31 @@ class Sorinana
     doc = Nokogiri::HTML(open(STORE_URL))
     stores_data = doc.css('.txt_g_12pxubica a')
     stores_data.each do |store_data|
+      store_url = ROOT_URL + store_data.attr('href')
+      page = Nokogiri::HTML(open(store_url))
+      enteries_table = page.css('.marcoverde')
+      enteries_table.each_with_index do |row, index|
       store = {}
       store[:city] = store_data.text
-      store_url = ROOT_URL + store_data.attr('href')
-      store_entry = doc = Nokogiri::HTML(open(store_url))
-      enteries = store_entry.css('.tabla_selectsuc1 .txt_selectsuc')
-      byebug
-      store[:name] = enteries[0].text
+      next if index == 0
+        values = row.css('.txt_selectsuc')
+        store[:name] = values[0].text.strip
+        address = values[1].text.split("Tel.")
+        sub_address = address.first.split("Cp ")
+        store[:zipcode] = sub_address.last.split("Call Center").first
+        store[:address] = sub_address.first
+        phone = address.last.split("Call Center").first.split(" ")
+        phone_number = phone[0].to_s + phone[1].to_s
+        if phone_number.size < 10
+          phone_number = phone_number + phone[2].to_s
+        end
+        if phone_number.size < 10
+          phone_number =  phone_number + phone[3].to_s
+        end
+        store[:phone] = phone_number.gsub(/[^\d]/, '')
+        puts "Store infos: " + store.inspect
+        all_stores << store
+      end
     end
     all_stores
   end
@@ -85,8 +103,8 @@ class Sorinana
     # PQSDK::Settings.host = 'api.promoqui.eu'
     # PQSDK::Settings.app_secret = '47588bffd1291f79476b376f805df479ea489e68f622db994c6b0e5631d22726'
     stores = get_stores
-    store_ids = update_store(stores)
-    get_leaflet(store_ids)
+    # store_ids = update_store(stores)
+    # get_leaflet(store_ids)
   end
 end
 
