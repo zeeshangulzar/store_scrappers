@@ -3,6 +3,14 @@ require 'json'
 require 'nokogiri'
 require 'open-uri'
 require 'byebug'
+require 'geocoder'
+
+Geocoder.configure(
+  timeout: 5,
+  lookup:  :google,
+  api_key: 'AIzaSyCYkLXVWq41-1RYrWxBvnUCm-qXcE4FJYo',
+  units:   :mi
+  )
 
 class Lacomer
 
@@ -26,6 +34,16 @@ class Lacomer
       leaflet.store_ids = store_ids
       leaflet.save
     end
+  end
+
+  def format_address(address)
+    address = address.gsub("La Comer, ",  '').gsub("Ã", '').gsub("©", '')
+    address.gsub("\u0081", '').gsub('La Comer', '').gsub("º", '').strip
+  end
+
+  def get_city(store)
+    location = Geocoder.search([store[:latitude], store[:longitude]]).first
+    location.try(:city)
   end
 
   def get_stores
@@ -55,12 +73,12 @@ class Lacomer
         map = Nokogiri::HTML(open(page_data["url"]))
         map_data = map.css('script').map {|s| s.content.scan(/initEmbed(.*)\)/)}.flatten.first
         map_values = JSON.parse(map_data[1..-1]).compact[4][3][0]
-        store[:city] = map_values[1].split(",").last.strip
         coords = map_values[2]
         store[:latitude] = coords.first
         store[:longitude] =  coords.last
         store[:zipcode] = map_values[1].split(",")[-3].gsub(/[^\d]/, '')
-        store[:address] = map_values[1].split(store[:zipcode]).first.strip[0..-2]
+        address = map_values[1].split(store[:zipcode]).first.strip[0..-2]
+        store[:address] = format_address(address)
         puts "Store_infos: " + store.inspect
         all_stores << store
       end
@@ -75,7 +93,7 @@ class Lacomer
       if s.nil?
         s = PQSDK::Store.new
         s.name = store[:name]
-        s.city =  'Test' ||store[:city]
+        s.city =  get_city(store)
         s.address = store[:address]
         s.origin = STORE_URL
         s.latitude = store[:latitude]
@@ -96,6 +114,7 @@ class Lacomer
     PQSDK::Settings.app_secret = 'c055acc7635b13f68782141db920a996ecac3e78ef4545df60b2ed5febf6a2d7'
     stores = get_stores
     store_ids = update_store(stores)
+    # store_ids = [81239, 81240, 81241, 81242, 81243, 81244, 81245, 81246, 81247, 81248, 81249, 81250, 81251, 81252, 81253, 81254, 81255, 81256, 81257, 81258, 81259, 81260, 81261, 81262, 81263, 81264, 81265, 81266, 81267]
     get_leaflet(store_ids)
   end
 end
