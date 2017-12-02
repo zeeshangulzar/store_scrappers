@@ -13,6 +13,7 @@ class PromoClub
     hours_data = hours_string.text.split("\r\n")
     hours_data.each do |data|
       if data.start_with?("LUNEDI'") || data.start_with?('DOMENICA')
+        data = [data, hours_data[1]].join(' ') unless data.include?('dalle')
         data_array = data.split('-')
         start_day = data_array[0].strip
         unless start_day.include?("dalle")
@@ -53,13 +54,12 @@ class PromoClub
       store = {}
       store[:name] = store_data.css('.pointsItemTitle').text.gsub("\r\n", " ").strip
       details = store_data.css('.century')
-      byebug
       store[:hours] = get_hours(details.last.children)
       store_detail = details.first.children
       store[:address] = store_detail[0].text.gsub("\r\n", " ").strip
       address = store_detail.last.text.split(' ')
       address.pop
-      store[:zip_code] = address.shift
+      store[:zipcode] = address.shift
       store[:city] = address.join(' ')
       unless coordinates_values[index].nil?
         store[:latitude] = coordinates_values[index][0]
@@ -78,13 +78,14 @@ class PromoClub
       if s.nil?
         s = PQSDK::Store.new
         s.name = store[:name]
-        s.city =  'Test' ||store[:city]
+        s.city = store[:city]
         s.address = store[:address]
         s.origin = STORE_URL
         s.latitude = store[:latitude]
         s.longitude = store[:longitude]
         s.zipcode = store[:zipcode]
         s.phone = store[:phone]
+        s.opening_hours = store[:hours]
       end
       puts "Promoqui_infos: " + s.inspect
       s.save
@@ -94,9 +95,9 @@ class PromoClub
   end
 
   def run
-    # PQSDK::Token.reset!
-    # PQSDK::Settings.host = 'api.promoqui.eu'
-    # PQSDK::Settings.app_secret = '49efba684814433cd2ccb94b92ec0b470dd7e06be10a2d7a17f3f76efeb68211'
+    PQSDK::Token.reset!
+    PQSDK::Settings.host = 'api.promoqui.eu'
+    PQSDK::Settings.app_secret = '49efba684814433cd2ccb94b92ec0b470dd7e06be10a2d7a17f3f76efeb68211'
     stores = get_stores
     store_ids = update_store(stores)
   end
