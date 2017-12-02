@@ -56,24 +56,42 @@ class Sorinana
       next if index == 0
         values = row.css('.txt_selectsuc')
         store[:name] = values[0].text.strip
-        address = values[1].text.split("Tel.")
-        sub_address = address.first.split("Cp ")
-        store[:zipcode] = sub_address.last.split("Call Center").first
-        store[:address] = sub_address.first
-        phone = address.last.split("Call Center").first.split(" ")
-        phone_number = phone[0].to_s + phone[1].to_s
-        if phone_number.size < 10
-          phone_number = phone_number + phone[2].to_s
-        end
-        if phone_number.size < 10
-          phone_number =  phone_number + phone[3].to_s
-        end
-        store[:phone] = phone_number.gsub(/[^\d]/, '')
+        address = values[1].children
+        store[:zipcode] = address[6].text.gsub(/[^\d]/, '')
+        store[:address] = [address[0].text, address[2].text].join(' ')
+        store[:phone] = get_phone(address)
+        store = get_coordinates(store)
         puts "Store infos: " + store.inspect
         all_stores << store
       end
     end
     all_stores
+  end
+
+  def get_coordinates(store)
+    coordinates = Geocoder.search(store[:address])
+    unless coordinates.any?
+      location = [store[:address], store[:city]].join(',')
+      coordinates = Geocoder.search(location)
+    end
+    unless coordinates.any?
+      coordinates = Geocoder.search(store[:zipcode])
+    end
+    store[:latitude] = coordinates[0].try(:latitude)
+    store[:longitude] = coordinates[0].try(:longitude)
+    store
+  end
+
+  def get_phone(address)
+    phone = address[8].text.gsub("Tel.", "").split(" ")
+    phone_number = phone[0].to_s + phone[1].to_s
+    if phone_number.size < 10
+      phone_number = phone_number + phone[2].to_s
+    end
+    if phone_number.size < 10
+      phone_number =  phone_number + phone[3].to_s
+    end
+    phone_number.gsub(/[^\d]/, '')
   end
 
   def update_store(stores)
@@ -99,12 +117,12 @@ class Sorinana
   end
 
   def run
-    # PQSDK::Token.reset!
-    # PQSDK::Settings.host = 'api.promoqui.eu'
-    # PQSDK::Settings.app_secret = '47588bffd1291f79476b376f805df479ea489e68f622db994c6b0e5631d22726'
+    PQSDK::Token.reset!
+    PQSDK::Settings.host = 'api.promoqui.eu'
+    PQSDK::Settings.app_secret = '47588bffd1291f79476b376f805df479ea489e68f622db994c6b0e5631d22726'
     stores = get_stores
-    # store_ids = update_store(stores)
-    # get_leaflet(store_ids)
+    store_ids = update_store(stores)
+    get_leaflet(store_ids)
   end
 end
 
