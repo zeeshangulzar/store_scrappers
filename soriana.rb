@@ -52,13 +52,14 @@ class Sorinana
       enteries_table = page.css('.marcoverde')
       enteries_table.each_with_index do |row, index|
       store = {}
-      store[:city] = store_data.text
+      # store[:city] = store_data.text
       next if index == 0
         values = row.css('.txt_selectsuc')
         store[:name] = values[0].text.strip
         address = values[1].children
         store[:zipcode] = address[6].text.gsub(/[^\d]/, '')
         store[:address] = [address[0].text, address[2].text].join(' ')
+        store[:city] = address[4].text.split(",").first
         store[:phone] = get_phone(address)
         store = get_coordinates(store)
         puts "Store infos: " + store.inspect
@@ -101,7 +102,7 @@ class Sorinana
       if s.nil?
         s = PQSDK::Store.new
         s.name = store[:name]
-        s.city =  get_city(store)
+        s.city =  store[:city]
         s.address = store[:address]
         s.origin = STORE_URL
         s.latitude = store[:latitude]
