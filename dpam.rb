@@ -44,8 +44,8 @@ class Dpam
     all_stores = []
     doc = Nokogiri::HTML(open(STORE_URL))
     stores_url = doc.css('.store_detail a').map {|store| store.attr('href')}.select {|s| s != 'javascript:void(0);'}
-    # stores_url.each do |store_url|
-    stores_url[305..333].each do |store_url|
+    stores_url.each do |store_url|
+    # stores_url[305..333].each do |store_url|
       page = Nokogiri::HTML(open(store_url))
       country = page.css('.store-locator-view-detail span')[1].elements.last.text
       next unless country  == "Italy"
@@ -64,7 +64,8 @@ class Dpam
         store[:phone] = phone
       end
       puts "Store_infos: " + store.inspect
-      puts "store_url:" + store_url
+      puts "Store_url:" + store_url
+      all_stores << store
     end
      all_stores
   end
@@ -81,8 +82,11 @@ class Dpam
         s.latitude = store[:latitude]
         s.longitude = store[:longitude]
         s.zipcode = store[:zipcode]
+        s.opening_hours = store[:hours]
+        s.phone = store[:phone]
+        s.phone
       end
-      puts "Store_infos: " + s.inspect
+      puts "Promoqui_infos: " + s.inspect
       s.save
     end
   end
