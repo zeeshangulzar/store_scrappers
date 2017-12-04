@@ -20,19 +20,28 @@ class Lacomer
   ENITITY_URL = 'https://vasalsuperoalacomer.com/comer/scripts/sucursal.php?id='
   LEAFLET_URL = 'https://vasalsuperoalacomer.com/comer/folleto'
   ROOT_URL = 'https://vasalsuperoalacomer.com/comer/'
+  LEAFLET_INDEX = 'https://www.lacomer.com.mx/lacomer/doHome.action?key=Lomas-Anahuac&succId=14&succFmt=100&pago=false'
+  LEAFLET_MENU_URL = 'https://www.lacomer.com.mx/lacomer/doHeaderLoad.action'
 
   def get_leaflet(store_ids)
-    doc = Nokogiri::HTML(open(LEAFLET_URL))
-    leaflet_images = doc.css('.bb-item img').map {|image| [ROOT_URL, image.attr('src')].join }
-    leaflet = PQSDK::Leaflet.find LEAFLET_URL
-    if leaflet.nil?
-      leaflet = PQSDK::Leaflet.new
-      leaflet.name = "Leaflet"
-      leaflet.start_date = leaflet.end_date = Time.now.to_s
-      leaflet.image_urls = leaflet_images
-      leaflet.url = LEAFLET_URL
-      leaflet.store_ids = store_ids
-      leaflet.save
+    page = open(LEAFLET_INDEX)
+    cookie = page.meta["set-cookie"]
+    doc = open(LEAFLET_MENU_URL, "Cookie" => cookie).read
+    urls = JSON.parse(doc)["folletos"].map {|a| a["url"].strip }
+
+    urls.each do |url|
+      leaflet_page = Nokogiri::HTML(open(url))
+      leaflet_images =  leaflet_page.css('.bb-item img').map {|image| [ROOT_URL, image.attr('src')].join }
+      leaflet = PQSDK::Leaflet.find url
+      if leaflet.nil?
+        leaflet = PQSDK::Leaflet.new
+        leaflet.name = "Leaflet"
+        leaflet.start_date = leaflet.end_date = Time.now.to_s
+        leaflet.image_urls = leaflet_images
+        leaflet.url = url
+        leaflet.store_ids = store_ids
+        leaflet.save
+      end
     end
   end
 
