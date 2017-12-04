@@ -24,7 +24,7 @@ class PromoClub
             end_string[4] = end_string[4].gsub!(".", ':') if end_string[4].include?(".")
             end_string[2] = end_string[2].gsub!(".", ':') if end_string[2].include?(".")
             hours_data[:weekday] = day
-            hours_data[:start_am] = end_string[2]
+            hours_data[:open_am] = end_string[2]
             hours_data[:close_am] = end_string[4]
             hours << hours_data
           end
@@ -34,7 +34,7 @@ class PromoClub
             start_data[4] = start_data[4].gsub!(".", ':') if start_data[4].include?(".")
             start_data[2] = start_data[2].gsub!(".", ':') if start_data[2].include?(".")
             hours_data[:weekday] = WEEKDAYS[start_data[0]]
-            hours_data[:start_am] = start_data[2]
+            hours_data[:open_am] = start_data[2]
             hours_data[:close_am] = start_data[4]
             hours << hours_data
         end
