@@ -57,8 +57,12 @@ class Dpam
       address = page.css('.store-locator-view-detail span').children
       store[:address] =  address[2].text
       sub_address = address[4].text.split(",")
-      store[:zipcode] =  sub_address.first
-      store[:city] = sub_address.last.split(' ').first
+      zipcode = sub_address.first
+      if !zipcode.nil? && zipcode.length < 5
+        zipcode = "0"* (5 - zipcode.length) + zipcode
+      end
+      store[:zipcode] = zipcode
+      store[:city] = sub_address.last.split(' ').first.gsub(/\A\p{Space}*|\p{Space}*\z/, '')
       phone = address[9].children[1].text.gsub('.', '')
       unless phone.include?('@dpamnet')
         store[:phone] = phone
