@@ -45,7 +45,6 @@ class Dpam
     doc = Nokogiri::HTML(open(STORE_URL))
     stores_url = doc.css('.store_detail a').map {|store| store.attr('href')}.select {|s| s != 'javascript:void(0);'}
     stores_url.each do |store_url|
-    # stores_url[305..333].each do |store_url|
       page = Nokogiri::HTML(open(store_url))
       country = page.css('.store-locator-view-detail span')[1].elements.last.text
       next unless country  == "Italy"
