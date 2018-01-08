@@ -23,12 +23,29 @@ class Superama
 
   def get_hours(hours)
     hours_data = []
-    data = hours.downcase.split(' a ')
     (0..6).each do |day|
       daily_hours = {}
       daily_hours[:weekday] =  day
-      daily_hours[:open_am] = data[0]
-      daily_hours[:close_am] = data[1]
+      if hours.downcase.start_with?('lunes')
+        h = hours.downcase.gsub('lunes a domingo de ', '').split('a')
+        if  h.size == 1 && h[0].split(' ').first == '24'
+          daily_hours[:open_am] = '00:00'
+          daily_hours[:close_pm] = "23:59"
+        else
+          daily_hours[:open_am] = h.first
+          daily_hours[:close_am] = h.last.split(' ').first
+        end
+      else
+        data = hours.downcase.split(' a ')
+        if  data.size == 1 && data[0].split(' ').first == '24'
+          daily_hours[:open_am] = '00:00'
+          daily_hours[:close_pm] = "23:59"
+        else
+          return if data.size == 1
+          daily_hours[:open_am] = data[0]
+          daily_hours[:close_am] = data[1].split(' ').first
+        end
+      end
       hours_data << daily_hours
     end
     hours_data
@@ -90,18 +107,17 @@ class Superama
               store[:zipcode] = store_data["CP"]
               store[:phone] = store_data["Telefono"]
               store[:address] = store_data["Direccion"].to_s + ' ' + store_data["Colonia"].to_s
-              store[:city] = city["Descripcion"]
-              store[:hours] = get_hours(store_data["Horario"]) #todo fix_me only
-              # byebug
+              location = Geocoder.search(store[:address])[0]
+              store[:city] = location.try(:city) || city["Descripcion"]
+              store[:hours] = get_hours(store_data["Horario"])
               if store_data["LatSpan"] != "0" && store_data["LonSpan"] != "0"
                 store[:latitude] = store_data["LatSpan"]
                 store[:longitude] = store_data["LonSpan"]
               else
-                coordinates = Geocoder.search(store[:address])[0]
-                store[:latitude] = coordinates.try(:latitude)
-                store[:longitude] = coordinates.try(:longitude)
+                store[:latitude] = location.try(:latitude)
+                store[:longitude] = location.try(:longitude)
               end
-              puts "Promoqui_infos: " + store.inspect
+              puts "store_infos: " + store.inspect
               all_stores << store
             end
           end
@@ -126,7 +142,7 @@ class Superama
           s.longitude = store[:longitude]
           s.zipcode = store[:zipcode]
           s.phone = store[:phone]
-          s.hours = store[:hours]
+          s.opening_hours = store[:hours]
         end
         puts "Promoqui_infos: " + s.inspect
         s.save
@@ -134,6 +150,7 @@ class Superama
       rescue => e
         p "*"*100
         p store
+        p e
       end
     end
     all_stores
@@ -141,13 +158,11 @@ class Superama
 
 
   def run
-    # PQSDK::Token.reset!
-    # PQSDK::Settings.host = 'api.promoqui.eu'
-    # PQSDK::Settings.app_secret = '9606d27c29347c1671fd7c000514ee24a4cd8f6fc9717f099320d57d86858455'
-    # stores = get_stores
-    # byebug
-    # store_ids = update_store(stores)
-    store_ids = []
+    PQSDK::Token.reset!
+    PQSDK::Settings.host = 'api.promoqui.eu'
+    PQSDK::Settings.app_secret = '9606d27c29347c1671fd7c000514ee24a4cd8f6fc9717f099320d57d86858455'
+    stores = get_stores
+    store_ids = update_store(stores)
     get_leaflet(store_ids.uniq)
   end
 end
