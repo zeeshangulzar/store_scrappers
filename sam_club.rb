@@ -9,27 +9,29 @@ class SamClub
 
   STORE_URL = 'https://m.samsclub.com/locator'
   API_URL = 'https://m.samsclub.com/api/node/clubfinder/list?distance=100&nbrOfStores=20&singleLineAddr='
-  LEAFLET_URL = 'https://www.samsclub.com/sams/pagedetails/content.jsp?pageName=one-day-event-catalog '
+  LEAFLET_URL = 'https://www.samsclub.com/sams/pagedetails/content.jsp?pageName=one-day-event-catalog'
+  BOOK_URL = 'https://catalog.samsclub.com/onedayonly/ServiceGetBookList.php'
+  IMAGES_URL_PREFIX = 'https://catalog.samsclub.com/onedayonly/'
+  IMAGES_URL_POSTFIX = '/toc/toc_enu.html'
 
 
-  # def get_leaflet(store_ids)
-  #   p "*"*100
-  #   p LEAFLET_URL
-  #   byebug
-  #   doc = Nokogiri::HTML(open(LEAFLET_URL))#, :allow_redirections => :all))
-  #   pdf_links = doc.css('.container .row .col-md-4 a').map { |pdf| pdf.attr('href') }
-  #   pdf_links.each do |pdf_url|
-  #     leaflet = PQSDK::Leaflet.find pdf_url
-  #     if leaflet.nil?
-  #       leaflet = PQSDK::Leaflet.new
-  #       leaflet.name = "Leaflet"
-  #       leaflet.start_date = leaflet.end_date = Time.now.to_s
-  #       leaflet.url = pdf_url
-  #       leaflet.store_ids = store_ids
-  #       leaflet.save
-  #     end
-  #   end
-  # end
+  def get_leaflet(store_ids)
+    doc = Nokogiri::HTML(open(BOOK_URL))
+    path = doc.xpath("//path").text
+    new_path = IMAGES_URL_PREFIX + path + IMAGES_URL_POSTFIX
+    page = Nokogiri::HTML(open(new_path))
+    leaflet_images = page.css('img').map {|l| IMAGES_URL_PREFIX + l.attr('src')}
+    leaflet = PQSDK::Leaflet.find LEAFLET_URL
+    if leaflet.nil?
+      leaflet = PQSDK::Leaflet.new
+      leaflet.name = "Leaflet"
+      leaflet.start_date = leaflet.end_date =  Time.now.to_s
+      leaflet.url = LEAFLET_URL
+      leaflet.image_urls = leaflet_images
+      leaflet.store_ids = store_ids
+      leaflet.save
+    end
+  end
 
   def parse_hours(hours_data)
     weekdays = []
@@ -63,9 +65,9 @@ class SamClub
 
   def get_stores(cities)
     all_stores = []
-    count = 0
+    # count = 0
     cities.each do |city|
-      count = count + 1
+      # count = count + 1
       begin
         doc = JSON.parse(open(API_URL + city.name).read)
         doc.each do |store_data|
@@ -92,8 +94,7 @@ class SamClub
         p e
         next
       end
-      byebug
-      break if count == 5
+      # break if count == 5
     end
     all_stores
   end
@@ -130,15 +131,13 @@ class SamClub
   def run
     PQSDK::Token.reset!
     PQSDK::Settings.host = 'c-api.ilikesales.com'
-    # PQSDK::Settings.host = 'c-api.ilikesales.mx'
     cities = PQSDK::City.all
     PQSDK::Token.reset!
     PQSDK::Settings.host = 'api.promoqui.eu'
     PQSDK::Settings.app_secret = '54a7b5ef6480693c4684eeb7045647ef50ab421aaaad8173d9361176d2ffc042'
     stores = get_stores(cities)
     store_ids = update_store(stores)
-    # store_ids = []
-    # get_leaflet(store_ids.uniq)
+    get_leaflet(store_ids.uniq)
   end
 end
 
